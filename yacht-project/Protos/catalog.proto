@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package catalog;
+
+service Catalog {
+  rpc CheckYachtAvailability(AvailabilityRequest) returns (AvailabilityResponse);
+
+  rpc GetYachtInfo(YachtRequest) returns (YachtResponse);
+
+  rpc RegisterBookingProjection (RegisterBookingRequest) returns (RegisterBookingResponse);
+}
+
+message AvailabilityRequest {
+  int32 yacht_id = 1;
+  string start_time = 2;
+  string end_time = 3;
+}
+
+message AvailabilityResponse {
+  bool is_available = 1;
+  double price_per_hour = 2;
+  string currency = 3;
+}
+
+message YachtRequest {
+  int32 yacht_id = 1;
+}
+
+message YachtResponse {
+  int32 id = 1;
+  string model = 2;
+  double price_per_hour = 3;
+}
+
+message RegisterBookingRequest {
+  int32 yacht_id = 1;
+  string start_time = 2;
+  string end_time = 3;
+}
+
+message RegisterBookingResponse {
+  bool is_success = 1;
+}

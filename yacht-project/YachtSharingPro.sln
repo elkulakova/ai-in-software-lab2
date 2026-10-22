@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9BF09AF0-85AA-4D13-B400-EDD0C2CD4587}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YachtSharing.BookingService", "src\YachtSharing.BookingService\YachtSharing.BookingService.csproj", "{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YachtSharing.CatalogService", "src\YachtSharing.CatalogService\YachtSharing.CatalogService.csproj", "{03335EB0-243A-4AC6-A217-7B25ECE503F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YachtSharing.MockGims", "src\YachtSharing.MockGims\YachtSharing.MockGims.csproj", "{C515FADD-4194-4FCD-8505-2C591B41F3DD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1AD43F98-774D-4130-AA34-4D1CEB45F058}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YachtSharing.UnitTests", "tests\YachtSharing.UnitTests\YachtSharing.UnitTests.csproj", "{7022BB6D-399A-43DC-90AE-55DE86E7C8BA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YachtSharing.IntegrationTests", "tests\YachtSharing.IntegrationTests\YachtSharing.IntegrationTests.csproj", "{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03335EB0-243A-4AC6-A217-7B25ECE503F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03335EB0-243A-4AC6-A217-7B25ECE503F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03335EB0-243A-4AC6-A217-7B25ECE503F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03335EB0-243A-4AC6-A217-7B25ECE503F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C515FADD-4194-4FCD-8505-2C591B41F3DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C515FADD-4194-4FCD-8505-2C591B41F3DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C515FADD-4194-4FCD-8505-2C591B41F3DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C515FADD-4194-4FCD-8505-2C591B41F3DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7022BB6D-399A-43DC-90AE-55DE86E7C8BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7022BB6D-399A-43DC-90AE-55DE86E7C8BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7022BB6D-399A-43DC-90AE-55DE86E7C8BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7022BB6D-399A-43DC-90AE-55DE86E7C8BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E7140CCA-8AC9-47A6-9D9E-7A08B06D30D3} = {9BF09AF0-85AA-4D13-B400-EDD0C2CD4587}
+		{03335EB0-243A-4AC6-A217-7B25ECE503F1} = {9BF09AF0-85AA-4D13-B400-EDD0C2CD4587}
+		{C515FADD-4194-4FCD-8505-2C591B41F3DD} = {9BF09AF0-85AA-4D13-B400-EDD0C2CD4587}
+		{7022BB6D-399A-43DC-90AE-55DE86E7C8BA} = {1AD43F98-774D-4130-AA34-4D1CEB45F058}
+		{A8B3D4C0-F31C-4C97-9E2B-F2A6FFAFB35F} = {1AD43F98-774D-4130-AA34-4D1CEB45F058}
+	EndGlobalSection
+EndGlobal
