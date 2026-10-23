@@ -5,6 +5,9 @@
 Запуск из папки yacht-project:
   python3 check_conventions.py
 
+Или с явным корнем (удобно мерить другие ветки, не копируя скрипт):
+  python3 check_conventions.py /path/to/yacht-project
+
 Печатает «нарушений: N» и список. Exit 0 если N=0, иначе 1.
 
 Конвенции (выведены из текущего кода, не «best practices»):
@@ -15,6 +18,11 @@
   5. Route контроллеров Booking: api/v1/... или health
   6. Публичные async-методы Controllers и Application/Services принимают CancellationToken
   7. В tests/ ассерты через FluentAssertions (.Should), не Assert.
+  8. UnitTests: имя [Fact]/[Theory] = Method_Expected_When... или Method_Returns...
+  9. Application не вызывает DateTime.UtcNow/Now — только IDateTimeProvider
+ 10. Свойства Domain/Entities только с private set (не { get; set; })
+ 11. Application не импортирует Infrastructure
+ 12. В BookingService нет Console.Write/WriteLine
 """
 
 from __future__ import annotations
@@ -96,7 +104,6 @@ USING_INFRA = re.compile(r"^using\s+YachtSharing\.BookingService\.Infrastructure
 FIELD_OR_PARAM_INFRA = re.compile(
     r"\bYachtSharing\.BookingService\.Infrastructure\.[A-Za-z0-9_.]+"
 )
-# конкретные репозитории/контекст в полях контроллера
 CONCRETE_DEP = re.compile(
     r"private\s+readonly\s+(BookingDbContext|IBookingRepository|IClientRepository|"
     r"IPaymentRepository|ICrewRepository|IUnitOfWork)\b"
@@ -112,7 +119,11 @@ def check_controllers_depend_on_abstractions() -> None:
             if stripped.startswith("//"):
                 continue
             if USING_INFRA.search(stripped) or FIELD_OR_PARAM_INFRA.search(stripped):
-                add(path, i, "Controller не должен зависеть от Infrastructure — только Application.Abstractions")
+                add(
+                    path,
+                    i,
+                    "Controller не должен зависеть от Infrastructure — только Application.Abstractions",
+                )
             if CONCRETE_DEP.search(stripped):
                 add(
                     path,
@@ -124,9 +135,7 @@ def check_controllers_depend_on_abstractions() -> None:
 # ---------------------------------------------------------------------------
 # 4. DomainException → MapDomainExceptionToCode
 # ---------------------------------------------------------------------------
-CLASS_DOMAIN_EX = re.compile(
-    r"class\s+(\w+)\s*:\s*DomainException\b"
-)
+CLASS_DOMAIN_EX = re.compile(r"class\s+(\w+)\s*:\s*DomainException\b")
 
 
 def check_domain_exceptions_mapped() -> None:
@@ -176,7 +185,6 @@ def check_controller_routes() -> None:
 # ---------------------------------------------------------------------------
 # 6. CancellationToken у публичных async-методов
 # ---------------------------------------------------------------------------
-# упрощённо: строка с public async Task... и следующая/та же без CancellationToken
 ASYNC_METHOD = re.compile(
     r"public\s+async\s+Task(?:<[^>]+>)?\s+(\w+)\s*\(([^)]*)\)"
 )
@@ -190,11 +198,9 @@ def check_cancellation_token() -> None:
     for base in targets:
         for path in iter_cs(base):
             content = path.read_text(encoding="utf-8", errors="replace")
-            # склеиваем переносы внутри сигнатур грубо: ищем public async Task ... )
             for m in ASYNC_METHOD.finditer(content):
                 name = m.group(1)
                 params = m.group(2)
-                # позиция для номера строки — начало матча
                 line_no = content[: m.start()].count("\n") + 1
                 if "CancellationToken" not in params:
                     add(
@@ -220,7 +226,7 @@ def check_tests_fluent() -> None:
 
 
 # ---------------------------------------------------------------------------
-# бонус (простой): версии пакетов только в Directory.Packages.props
+# бонус: версии пакетов только в Directory.Packages.props
 # ---------------------------------------------------------------------------
 VERSION_IN_CSPROJ = re.compile(
     r"""<PackageReference\b[^>]*\bVersion\s*=""",
@@ -237,7 +243,115 @@ def check_central_package_versions() -> None:
                 add(path, i, "версия пакета только в Directory.Packages.props, не в csproj")
 
 
+# ---------------------------------------------------------------------------
+# 8. UnitTests: Method_Expected_When... или Method_Returns...
+# ---------------------------------------------------------------------------
+TEST_METHOD = re.compile(
+    r"public\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void)\s+(\w+)\s*\("
+)
+VALID_UNIT_TEST_NAME = re.compile(
+    r"^.+_.+_When.+$|^.+_Returns.+$|^.+_Returns.+_For.+$"
+)
+
+
+def check_unit_test_naming() -> None:
+    unit = TESTS / "YachtSharing.UnitTests"
+    for path in iter_cs(unit):
+        lines = lines_of(path)
+        for i, line in enumerate(lines, 1):
+            if not TEST_METHOD.search(line):
+                continue
+            window = "\n".join(lines[max(0, i - 4) : i])
+            if "[Fact]" not in window and "[Theory]" not in window:
+                continue
+            m = TEST_METHOD.search(line)
+            assert m is not None
+            name = m.group(1)
+            if not VALID_UNIT_TEST_NAME.match(name):
+                add(
+                    path,
+                    i,
+                    f"имя unit-теста «{name}» — нужен вид Method_Expected_When... "
+                    f"или Method_Returns... (как в существующих тестах)",
+                )
+
+
+# ---------------------------------------------------------------------------
+# 9. Application: не DateTime.UtcNow / DateTime.Now
+# ---------------------------------------------------------------------------
+DATETIME_NOW = re.compile(r"\bDateTime\.(UtcNow|Now)\b")
+
+
+def check_no_datetime_now_in_application() -> None:
+    app = BOOKING / "Application"
+    for path in iter_cs(app):
+        for i, line in enumerate(lines_of(path), 1):
+            if line.strip().startswith("//"):
+                continue
+            if DATETIME_NOW.search(line):
+                add(
+                    path,
+                    i,
+                    "в Application используй IDateTimeProvider, не DateTime.UtcNow/Now",
+                )
+
+
+# ---------------------------------------------------------------------------
+# 10. Domain Entities: private set
+# ---------------------------------------------------------------------------
+PUBLIC_SETTER = re.compile(r"\{\s*get;\s*set;\s*\}")
+
+
+def check_entity_private_setters() -> None:
+    entities = BOOKING / "Domain" / "Entities"
+    for path in iter_cs(entities):
+        for i, line in enumerate(lines_of(path), 1):
+            if line.strip().startswith("//"):
+                continue
+            if PUBLIC_SETTER.search(line):
+                add(path, i, "свойства сущностей — только private set, не публичный set")
+
+
+# ---------------------------------------------------------------------------
+# 11. Application не импортирует Infrastructure
+# ---------------------------------------------------------------------------
+APP_USES_INFRA = re.compile(r"^using\s+YachtSharing\.BookingService\.Infrastructure\b")
+
+
+def check_application_no_infrastructure() -> None:
+    app = BOOKING / "Application"
+    for path in iter_cs(app):
+        for i, line in enumerate(lines_of(path), 1):
+            if APP_USES_INFRA.search(line.strip()):
+                add(path, i, "Application не должен импортировать Infrastructure")
+
+
+# ---------------------------------------------------------------------------
+# 12. Нет Console.Write* в BookingService
+# ---------------------------------------------------------------------------
+CONSOLE_RE = re.compile(r"\bConsole\.(WriteLine|Write)\s*\(")
+
+
+def check_no_console_in_booking() -> None:
+    for path in iter_cs(BOOKING):
+        for i, line in enumerate(lines_of(path), 1):
+            if line.strip().startswith("//"):
+                continue
+            if CONSOLE_RE.search(line):
+                add(path, i, "Console.Write/WriteLine запрещён — используй ILogger")
+
+
+def configure_root(root: Path) -> None:
+    global ROOT, BOOKING, TESTS
+    ROOT = root.resolve()
+    BOOKING = ROOT / "src" / "YachtSharing.BookingService"
+    TESTS = ROOT / "tests"
+
+
 def main() -> int:
+    if len(sys.argv) > 1:
+        configure_root(Path(sys.argv[1]))
+
     check_domain_isolation()
     check_controllers_no_db()
     check_controllers_depend_on_abstractions()
@@ -246,6 +360,11 @@ def main() -> int:
     check_cancellation_token()
     check_tests_fluent()
     check_central_package_versions()
+    check_unit_test_naming()
+    check_no_datetime_now_in_application()
+    check_entity_private_setters()
+    check_application_no_infrastructure()
+    check_no_console_in_booking()
 
     n = len(violations)
     print(f"нарушений: {n}")
