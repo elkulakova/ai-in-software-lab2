@@ -159,10 +159,11 @@ python3 check_conventions.py --base 7517704
 |--------|--------|--------|-----------|
 | 1 | `with-agents-attempt-1` | `9309509` | **0** |
 | 2 | `with-agents-attempt-2` | `fd59eab` | **0** |
+| 3 | `with-agents-attempt-3` | `f393959` | **0** |
 
 | Метрика | Baseline (среднее) | С AGENTS/skill | Δ |
 |---------|-------------------|----------------|---|
-| нарушений | ≈7.7 (9 / 9 / 5) | **0 / 0** | устранение типичных нарушений маппинга / слоёв |
+| нарушений | ≈7.7 (9 / 9 / 5) | **0 / 0 / 0** | устранение типичных нарушений маппинга / слоёв |
 
 ### Что сработало
 
@@ -187,6 +188,7 @@ python3 check_conventions.py --base 7517704
 |--------|--------|--------|-----------|
 | 1 | `generalization-attempt-1` | `d0fabc1` | **0** |
 | 2 | `generalization-attempt-2` | `38cd237` | **0** |
+| 3 | `generalization-attempt-3` | `cb1924c` | **0** |
 
 ### Вывод по генерализуемости
 
@@ -202,8 +204,8 @@ python3 check_conventions.py --base 7517704
 | Этап | Нарушений (check `--base 7517704`) |
 |------|-------------------------------------|
 | Baseline export ×3 | 9, 9, 5 |
-| With AGENTS export ×2 | 0, 0 |
-| Generalization pagination ×2 | 0, 0 |
+| With AGENTS export ×3 | 0, 0, 0 |
+| Generalization pagination ×3 | 0, 0, 0 |
 
 1. **Качество инструкций:** проверяемые пункты в AGENTS/skill совпадают со скриптом.  
 2. **Измеримость:** автоматический check + ≥2 baseline + числа до/после.  
@@ -217,8 +219,8 @@ python3 check_conventions.py --base 7517704
 | Ветка | Назначение |
 |--------|------------|
 | `baseline-attempt-1..3` | export без AGENTS |
-| `with-agents-attempt-1..2` | export с AGENTS/skill |
-| `generalization-attempt-1..2` | pagination+filter с AGENTS/skill |
+| `with-agents-attempt-1..3` | export с AGENTS/skill |
+| `generalization-attempt-1..3` | pagination+filter с AGENTS/skill |
 | `main` | AGENTS, skill, check, REPORT |
 
 ## Приложение B. Воспроизведение замера
