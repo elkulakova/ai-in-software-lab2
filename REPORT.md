@@ -4,26 +4,26 @@
 
 Репозиторий: `yacht-project` (Yacht Sharing Pro, .NET 9).
 
-Почему подходит под шаг 0:
+Чек-лист шага 0:
 
-- есть слои BookingService: Controllers → Application → Domain → Infrastructure;
-- ~4k строк C#, тесты (unit + integration), docker-compose;
-- неочевидные конвенции (маппинг только в `Application/Mappings`, `sealed record` DTO, `IDateTimeProvider`, ошибки через middleware и т.д.).
+- [x] Разделение слоёв BookingService: Controllers → Application → Domain → Infrastructure  
+- [x] Размер ~4k строк C#, не тривиальный  
+- [x] Есть гоняемые тесты (`dotnet test` unit + integration)  
+- [x] ≥5–7 неочевидных конвенций (Mappings, sealed record DTO, middleware, `IDateTimeProvider`, `IReadOnlyList`, …)  
+- [x] Популярный стек (ASP.NET / EF / xUnit)
 
-Чистая точка для baseline: коммит `7517704` (тег `baseline-clean`).
+Чистая точка baseline: коммит `7517704` (тег `baseline-clean`).  
+Точка с контекстом: `main` / `5f8c052` (AGENTS.md + skill + check-скрипт).
 
-## 2. Задача для прогонов
+---
 
-**Экспорт данных клиента** («скачать мои данные»):
+## 2. Задачи и промпты
 
-- `GET /api/v1/clients/{clientId}/export`;
-- JSON: профиль + бронирования + экипаж + платежи;
-- 404 если клиента нет; пустые коллекции если броней нет;
-- unit/integration-тесты на три сценария.
+### 2.1. Основная задача (baseline + прогон с AGENTS)
 
-Промпт на всех baseline-прогонах одинаковый; **без** упоминания конвенций / AGENTS / check-скрипта. Каждый прогон — новая ветка от `7517704` и **новый чат** с агентом.
+**Экспорт данных клиента** («скачать мои данные»).
 
-промпт:
+Промпт (одинаковый на всех прогонах export; **без** упоминания конвенций / AGENTS / check):
 
 ```
 Добавь экспорт данных клиента в YachtSharing.BookingService («скачать мои данные»).
@@ -35,139 +35,198 @@
   5. Нужны unit- и/или integration-тесты на сценарии: успешный экспорт с данными; клиент не найден; клиент без броней. Сделай так, чтобы фича естественно вписалась в существующий проект. Не объясняй теорию — сразу внеси изменения в код.
 ```
 
-## 3. Конвенции и автоматическая проверка
+Каждый прогон: отдельная ветка, **новый чат**, один и тот же текст промпта.
 
-Файл: `yacht-project/check_conventions.py`.
+### 2.2. Задача generalization (вторая, скрытая относительно правил)
 
-Замер прогона агента (только файлы из diff):
+**Пагинация + фильтрация списка бронирований.**
 
-```bash
-python3 yacht-project/check_conventions.py yacht-project --base 7517704
+Промпт (полностью, как использовался):
+
+```
+Добавь пагинацию и фильтрацию списка бронирований в YachtSharing.BookingService.
+  Требования:
+  1. REST-эндпоинт GET /api/v1/bookings с query-параметрами:
+     - page (номер страницы, с 1),
+     - limit (размер страницы),
+     - status (опциональный фильтр по статусу бронирования: PendingPayment, Confirmed, Cancelled, Expired — как в домене).
+  2. Ответ — JSON со списком бронирований на странице и метаданными пагинации (как минимум: total count и/или hasMore / totalPages — выбери один понятный вариант и придерживайся его).
+  3. Валидация: некорректные page/limit (например ≤ 0) и неизвестный status — ошибка 400 через принятый в проекте механизм ошибок (не «тихий» дефолт без явной политики). Разумные значения по умолчанию для page/limit, если параметры не переданы, допустимы — зафиксируй их в коде.
+  4. Фильтрация и limit/offset (или аналог) должны выполняться на уровне доступа к данным (repository), а не «выгрузить всё в память и порезать в контроллере».
+  5. Unit- и/или integration-тесты: успешная первая страница; фильтр по status; невалидный status или page/limit.
+  Сделай так, чтобы фича естественно вписалась в существующий проект. Не объясняй теорию — сразу внеси изменения в
+  код.
 ```
 
-Краткий список правил (проверяемые):
+Те же `AGENTS.md` + skill, что и для with-agents export. Новые ветки от `main` с контекстом, новые чаты.
 
-1. Domain не тянет Infrastructure / Controllers / Application / ASP.NET / EF  
+---
+
+## 3. Конвенции и автоматическая проверка
+
+Файл: `yacht-project/check_conventions.py` (вариант 1 из шага 4 лабы — скрипт без LLM).
+
+```bash
+cd yacht-project
+python3 check_conventions.py --base 7517704
+# печатает: нарушений: N + список file:line
+```
+
+Режим `--base` считает только `.cs` из diff относительно чистой базы (включая untracked). На чистом дереве без agent-diff: **0**.
+
+Проверяемые правила (согласованы с `yacht-project/AGENTS.md`):
+
+1. Domain без Infrastructure / Controllers / Application / ASP.NET / EF  
 2. Controllers без DbContext / EF / Persistence  
-3. Controllers зависят от Application.Abstractions, не от Infrastructure  
-4. `DomainException`-наследники замаплены в `ExceptionHandlingMiddleware`  
+3. Controllers → Application.Abstractions, не Infrastructure  
+4. `DomainException` замаплены в `ExceptionHandlingMiddleware`  
 5. Route: `api/v1/...` или `health`  
-6. Публичные async в Controllers / Application.Services — с `CancellationToken`  
-7. В тестах FluentAssertions, не `Assert.`  
+6. Публичные async + `CancellationToken`  
+7. Тесты: FluentAssertions, не `Assert.`  
 8. Имена unit-тестов: `Method_Expected_When...` / `Method_Returns...`  
-9. Application без `DateTime.UtcNow/Now` — только `IDateTimeProvider`  
-10. Entity-свойства с `private set`  
+9. Application: `IDateTimeProvider`, не `DateTime.UtcNow/Now`  
+10. Entity: `private set`  
 11. Application не импортирует Infrastructure  
 12. Нет `Console.Write*` в BookingService  
-13. DTO — `public sealed record`  
-14–15. `new *Dto(` только в `Application/Mappings`, не в Controllers / Services  
-16. Controllers не импортируют `Domain.Entities`  
-17. `Booking.Status = ...` только в Domain (через domain-методы)  
-18. Коллекции в репозиториях — `IReadOnlyList<>`  
-19. Controllers не ловят `KeyNotFoundException` / `DomainException` (это middleware; проверка в режиме `--base`)
+13. DTO = `public sealed record`  
+14–15. `new *Dto(` только в `Application/Mappings`  
+16. Controllers без `Domain.Entities`  
+17. `Booking.Status =` только в Domain  
+18. Репозитории: `IReadOnlyList<>`  
+19. Controllers не ловят KeyNotFound/DomainException (middleware; в `--base`)
 
-На чистом `7517704` и на `main` без agent-diff: **нарушений: 0**.
+Сырые логи замеров: каталог `logs/` (`baseline-attempt-*.txt`, `with-agents-attempt-*.txt`, `generalization-attempt-*.txt`, `SUMMARY.txt`).
+
+---
 
 ## 4. Baseline (без AGENTS.md / skill)
 
-Сырые логи: `logs/baseline-attempt-1.txt`, `logs/baseline-attempt-2.txt`, сводка `logs/SUMMARY.txt`.
+Ветки от `7517704`, задача — export (промпт §2.1).
 
-| Прогон | Ветка | Коммит | Нарушений (check `--base 7517704`) |
-|--------|--------|--------|-------------------------------------|
+| Прогон | Ветка | Коммит | Нарушений |
+|--------|--------|--------|-----------|
 | 1 | `baseline-attempt-1` | `b76e5c2` | **9** |
 | 2 | `baseline-attempt-2` | `ca09181` | **9** |
-| 3 | `baseline-attempt-3` | — | *(пока чистая база; прогон у сокомандницы)* |
+| 3 | `baseline-attempt-3` | `b199567` | **5** |
 
-> В сообщении коммита attempt-1 было «8 violations»; повторный прогон актуальным скриптом с `main` даёт **9**. В отчёте опираемся на повторный автоматический замер.
+Среднее: **(9 + 9 + 5) / 3 ≈ 7.7** нарушений.
 
-### 4.1. Что ломал агент (типичное)
+> В сообщении коммита attempt-1 было «8 violations»; актуальный скрипт даёт **9**. В отчёте — числа повторного автоматического замера.
 
-**Оба прогона**
+### 4.1. Типичные ошибки агента
 
-- Сборка export-DTO через `new …Dto(` **прямо в** `BookingManagementService`, а не через `Application/Mappings` (*MappingExtensions). Это основной объём нарушений (правила 14–15).
+**Все три прогона**
+
+- Сборка export-DTO через `new …Dto(` **в** `BookingManagementService`, а не в `Application/Mappings` (правила 14–15) — основной объём нарушений.
 
 **Прогон 1**
 
-- Дополнительно: `ClientsController` ловит `KeyNotFoundException` сам (правило 19), хотя в проекте есть `ExceptionHandlingMiddleware`.
+- `ClientsController` сам ловит `KeyNotFoundException` (правило 19).
 
 **Прогон 2**
 
-- Дополнительно: `Application` импортирует `Infrastructure` (правило 11).
-- Контроллер в этом прогоне, судя по check, без catch-нарушения; зато слой Application «протекает» вниз.
+- `Application` импортирует `Infrastructure` (правило 11).
 
-### 4.2. Вывод по baseline
+**Прогон 3**
 
-Агент стабильно решает задачу функционально, но **не соблюдает неочевидный паттерн маппинга** проекта. Слои Controllers/DbContext в целом не ломает «в лоб» — без ужесточённых правил (DTO/Mappings/middleware) baseline давал бы ~0, и эффект AGENTS.md было бы нечем мерить.
+- Только нарушения маппинга (5× `new …Dto(` в сервисе); без catch/Infrastructure в check.
 
-Среднее baseline: **(9 + 9) / 2 = 9** нарушений за прогон.
+### 4.2. Вывод
+
+Агент стабильно делает фичу «рабочей», но **не угадывает неочевидный паттерн Mappings**. Грубые слои (DbContext в Controller) почти не ломает — поэтому check специально ужесточали под реальные паттерны репо.
+
+---
 
 ## 5. AGENTS.md и skill
 
-**Статус: ещё не сделано.**
+На `main`:
 
-Планируется:
+- `AGENTS.md` (указатель) + канонический **`yacht-project/AGENTS.md`** — формат [agents.md](https://agents.md/): overview, setup/test commands, code style, testing, PR.  
+- Skill: **`yacht-project/skills/implement-api-endpoint/SKILL.md`** (+ `references/e2e-isolation.md` для progressive disclosure).  
+  Frontmatter `name` / `description`; пошаговая реализация API под те же проверяемые правила.
 
-- корневой `AGENTS.md` с теми же проверяемыми правилами, что в check-скрипте;
-- skill (например `skills/implement-api-endpoint/SKILL.md`) с пошаговым чеклистом для новой API-фичи: route → use-case → mapping extensions → репозитории/`IReadOnlyList` → ошибки через domain/middleware → тесты с именованием.
+Инструкции **конкретные и проверяемые** (куда класть DTO, запрет `new *Dto(` вне Mappings, middleware вместо catch, `IReadOnlyList`, имена тестов) — не «write good tests».
 
-*(Заполнить после написания файлов.)*
+Черновики авторов локально: `AGENTS_liza.md` / `AGENTS_luda.md`, `SKILL_liza.md` / `SKILL_luda.md` (в `.gitignore`).
+
+---
 
 ## 6. Прогон с контекстом (та же задача export)
 
-**Статус: ещё не сделано.**
+База веток: `main` с AGENTS/skill. Тот же промпт §2.1. Новые чаты.
 
-План:
-
-1. Ветка от `7517704` / `main` **с** `AGENTS.md` + skill.  
-2. Новый чат, тот же промпт export.  
-3. `python3 check_conventions.py yacht-project --base 7517704` → `N_after`.  
-4. Сравнение с baseline (~9).
+| Прогон | Ветка | Коммит | Нарушений |
+|--------|--------|--------|-----------|
+| 1 | `with-agents-attempt-1` | `9309509` | **0** |
+| 2 | `with-agents-attempt-2` | `fd59eab` | **0** |
 
 | Метрика | Baseline (среднее) | С AGENTS/skill | Δ |
 |---------|-------------------|----------------|---|
-| нарушений | 9 | *TBD* | *TBD* |
+| нарушений | ≈7.7 (9 / 9 / 5) | **0 / 0** | устранение типичных нарушений маппинга / слоёв |
 
-Лог: `logs/with-context-attempt-1.txt` *(создать после прогона)*.
+### Что сработало
 
-### Какие правила ожидаемо сработают
+- **14–15 (Mappings)** — главный выигрыш: с контекстом DTO собираются через `*MappingExtensions`, check не ругается.  
+- **11 (Application ↛ Infrastructure)** — во with-agents не всплыло.  
+- **19 (не catch в Controller)** — во with-agents не всплыло.  
+- Skill с чеклистом «route → use-case → Mappings → repo → tests» совпал с тем, что агент реально ломал на baseline.
 
-- 14–15 (Mappings) — главный источник baseline-ошибок;  
-- 11 (Application ↛ Infrastructure);  
-- 19 (не catch в Controller).
+### Что было малополезно / не проявилось на export
 
-### Какие могут оказаться «бесполезными» на этой задаче
+- Правила про присвоение `Booking.Status` — задача export их почти не провоцирует.  
+- `sealed record` / `IReadOnlyList` — на with-agents агент и так часто соблюдал; на baseline check их почти не ловил как основной источник N.  
+- Раздел E2E в skill (`references/e2e-isolation.md`) на этих прогонах не использовался (задача — реализация API, не стенд).
 
-- правила про `Booking.Status =` / soft-delete-подобные — export их почти не провоцирует;  
-- `sealed record` / `IReadOnlyList` — агент иногда и так соблюдает.
+---
 
-*(Уточнить по факту после прогона.)*
+## 7. Generalization (пагинация + фильтр)
 
-## 7. Generalization (вторая задача)
+Те же AGENTS.md + skill. Промпт — полностью §2.2. Ветки от `main` с контекстом.
 
-**Статус: ещё не сделано.**
+| Прогон | Ветка | Коммит | Нарушений |
+|--------|--------|--------|-----------|
+| 1 | `generalization-attempt-1` | `d0fabc1` | **0** |
+| 2 | `generalization-attempt-2` | `38cd237` | **0** |
 
-Кандидат: soft delete бронирования **или** пагинация/фильтрация списка — та же архитектура, другой сценарий; те же AGENTS.md + skill.
+### Вывод по генерализуемости
 
-Зафиксировать: промпт, коммит, `нарушений: N`, сравнение с ожиданиями.
+Правила **не привязаны только к export**: на другой задаче (query `page`/`limit`/`status`, список, repository limit/offset, валидация 400) check снова дал **0**.  
+Значит инструкции сформулированы как общие принципы слоёв/DTO/Mappings/ошибок, а не как «как сделать export».
 
-Лог: `logs/generalization.txt` *(создать после прогона)*.
+*(Если бы на generalization снова сыпались `new *Dto(` в Service — правила были бы слишком узкими или skill слишком export-специфичным; этого не произошло.)*
 
-## 8. Итоги (черновик)
+---
 
-- Без контекста агент **стабильно** нарушает конвенцию маппинга (~9 нарушений / прогон).  
-- Check-скрипт даёт воспроизводимые числа до/после.  
-- Дальше: написать AGENTS.md + skill → прогон export с контекстом → generalization → дописать разделы 5–7 и финальный разбор «что сработало / что нет / почему».
+## 8. Итоги
 
-## Приложение: как воспроизвести замеры
+| Этап | Нарушений (check `--base 7517704`) |
+|------|-------------------------------------|
+| Baseline export ×3 | 9, 9, 5 |
+| With AGENTS export ×2 | 0, 0 |
+| Generalization pagination ×2 | 0, 0 |
+
+1. **Качество инструкций:** проверяемые пункты в AGENTS/skill совпадают со скриптом.  
+2. **Измеримость:** автоматический check + ≥2 baseline + числа до/после.  
+3. **Генерализуемость:** вторая задача (пагинация) с теми же правилами → 0 нарушений.  
+4. **Анализ:** без контекста агент стабильно игнорировал Mappings; AGENTS/skill это устранили; на новой задаче эффект сохранился. Малополезными на данных прогонах оказались статус-мутации и E2E-справка в skill.
+
+---
+
+## Приложение A. Ветки эксперимента
+
+| Ветка | Назначение |
+|--------|------------|
+| `baseline-attempt-1..3` | export без AGENTS |
+| `with-agents-attempt-1..2` | export с AGENTS/skill |
+| `generalization-attempt-1..2` | pagination+filter с AGENTS/skill |
+| `main` | AGENTS, skill, check, REPORT |
+
+## Приложение B. Воспроизведение замера
 
 ```bash
-# baseline-attempt-1
-git checkout baseline-attempt-1
-python3 /path/to/main/yacht-project/check_conventions.py yacht-project --base 7517704
-
-# baseline-attempt-2
-git checkout baseline-attempt-2
-python3 /path/to/main/yacht-project/check_conventions.py yacht-project --base 7517704
+git checkout <ветка>
+cd yacht-project   # или путь к check с main
+python3 check_conventions.py --base 7517704
 ```
 
-Актуальная копия скрипта — на ветке `main` (`yacht-project/check_conventions.py`).
+Актуальный скрипт: `yacht-project/check_conventions.py` на `main`.
