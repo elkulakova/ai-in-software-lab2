@@ -96,6 +96,24 @@ def load_changed_since(base_ref: str) -> set[Path]:
         path = (probe / line).resolve()
         if path.exists():
             files.add(path)
+
+    # Untracked files (ещё не в коммите) тоже часть прогона агента
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", str(rel)],
+        cwd=probe,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if untracked.returncode == 0:
+        for line in untracked.stdout.splitlines():
+            line = line.strip()
+            if not line.endswith(".cs"):
+                continue
+            path = (probe / line).resolve()
+            if path.exists():
+                files.add(path)
+
     return files
 
 
