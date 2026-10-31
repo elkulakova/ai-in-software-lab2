@@ -12,7 +12,7 @@
 - [x] ≥5–7 неочевидных конвенций (Mappings, sealed record DTO, middleware, `IDateTimeProvider`, `IReadOnlyList`, …)  
 - [x] Популярный стек (ASP.NET / EF / xUnit)
 
-Чистая точка baseline: коммит `7517704` (тег `baseline-clean`).  
+Чистая точка baseline: коммит `7517704`.  
 Точка с контекстом: `main` / `5f8c052` (AGENTS.md + skill + check-скрипт).
 
 ---
@@ -41,7 +41,7 @@
 
 **Пагинация + фильтрация списка бронирований.**
 
-Промпт (полностью, как использовался):
+Промпт:
 
 ```
 Добавь пагинацию и фильтрацию списка бронирований в YachtSharing.BookingService.
@@ -95,8 +95,6 @@ python3 check_conventions.py --base 7517704
 18. Репозитории: `IReadOnlyList<>`  
 19. Controllers не ловят KeyNotFound/DomainException (middleware; в `--base`)
 
-Сырые логи замеров: каталог `logs/` (`baseline-attempt-*.txt`, `with-agents-attempt-*.txt`, `generalization-attempt-*.txt`, `SUMMARY.txt`).
-
 ---
 
 ## 4. Baseline (без AGENTS.md / skill)
@@ -110,8 +108,6 @@ python3 check_conventions.py --base 7517704
 | 3 | `baseline-attempt-3` | `b199567` | **5** |
 
 Среднее: **(9 + 9 + 5) / 3 ≈ 7.7** нарушений.
-
-> В сообщении коммита attempt-1 было «8 violations»; актуальный скрипт даёт **9**. В отчёте — числа повторного автоматического замера.
 
 ### 4.1. Типичные ошибки агента
 
@@ -146,8 +142,6 @@ python3 check_conventions.py --base 7517704
   Frontmatter `name` / `description`; пошаговая реализация API под те же проверяемые правила.
 
 Инструкции **конкретные и проверяемые** (куда класть DTO, запрет `new *Dto(` вне Mappings, middleware вместо catch, `IReadOnlyList`, имена тестов) — не «write good tests».
-
-Черновики авторов локально: `AGENTS_liza.md` / `AGENTS_luda.md`, `SKILL_liza.md` / `SKILL_luda.md` (в `.gitignore`).
 
 ---
 
