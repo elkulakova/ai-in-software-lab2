@@ -9,6 +9,8 @@ public interface IBookingService
 {
     Task<Guid> RegisterClientAsync(RegisterClientDto dto, CancellationToken cancellationToken = default);
 
+    Task DeleteClientAsync(Guid clientId, CancellationToken cancellationToken = default);
+
     Task<BookingResponseDto> GetBookingByIdAsync(
         Guid bookingId,
         CancellationToken cancellationToken = default);

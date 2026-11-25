@@ -12,4 +12,6 @@ public interface IClientRepository
     Task<UserClient?> GetByNameAndEmailAsync(string name, string email, CancellationToken cancellationToken = default);
 
     void Add(UserClient client);
+
+    void Delete(UserClient client);
 }

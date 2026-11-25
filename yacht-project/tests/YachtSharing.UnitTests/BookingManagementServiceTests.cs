@@ -20,6 +20,128 @@ namespace YachtSharing.UnitTests;
 public class BookingManagementServiceTests
 {
     [Fact]
+    public async Task DeleteClientAsync_ReturnsNoContent_WhenClientHasNoActiveBookings()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+
+        Guid clientId = Guid.NewGuid();
+        UserClient client = new UserClient("name", "email@example.com");
+
+        bookingRepository
+            .Setup(x => x.GetByClientIdAsync(clientId, CancellationToken.None))
+            .ReturnsAsync(new List<Booking>
+            {
+                CreateBookingWithClientId(clientId, BookingStatus.Cancelled),
+                CreateBookingWithClientId(clientId, BookingStatus.Expired),
+            });
+        clientRepository
+            .Setup(x => x.GetByIdAsync(clientId, CancellationToken.None))
+            .ReturnsAsync(client);
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        await service.DeleteClientAsync(clientId, CancellationToken.None);
+
+        clientRepository.Verify(x => x.Delete(client), Times.Once);
+        unitOfWork.Verify(x => x.SaveChangesAsync(CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteClientAsync_ThrowsNotFound_WhenClientDoesNotExist()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+
+        Guid clientId = Guid.NewGuid();
+        clientRepository
+            .Setup(x => x.GetByIdAsync(clientId, CancellationToken.None))
+            .ReturnsAsync((UserClient?)null);
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        Func<Task> action = async () => await service.DeleteClientAsync(clientId, CancellationToken.None);
+        await action.Should().ThrowAsync<KeyNotFoundException>();
+
+        clientRepository.Verify(x => x.Delete(It.IsAny<UserClient>()), Times.Never);
+        unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteClientAsync_ThrowsConflict_WhenClientHasActiveBookings()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+
+        Guid clientId = Guid.NewGuid();
+        UserClient client = new UserClient("name", "email@example.com");
+
+        bookingRepository
+            .Setup(x => x.GetByClientIdAsync(clientId, CancellationToken.None))
+            .ReturnsAsync(new List<Booking>
+            {
+                CreateBookingWithClientId(clientId, BookingStatus.PendingPayment),
+                CreateBookingWithClientId(clientId, BookingStatus.Confirmed),
+            });
+        clientRepository
+            .Setup(x => x.GetByIdAsync(clientId, CancellationToken.None))
+            .ReturnsAsync(client);
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        Func<Task> action = async () => await service.DeleteClientAsync(clientId, CancellationToken.None);
+        await action.Should().ThrowAsync<ClientHasActiveBookingsException>();
+
+        clientRepository.Verify(x => x.Delete(It.IsAny<UserClient>()), Times.Never);
+        unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ProcessPaymentWebhookAsync_DoesNothing_WhenTransactionAlreadyProcessed()
     {
         var bookingRepository = new Mock<IBookingRepository>();
@@ -428,6 +550,32 @@ public class BookingManagementServiceTests
             new DateTime(2026, 06, 21, 14, 00, 00, DateTimeKind.Utc),
             new Passport("4512", "123456"),
             finalCost);
+    }
+
+    private static Booking CreateBookingWithClientId(Guid clientId, BookingStatus status)
+    {
+        Booking booking = new Booking(
+            clientId,
+            7,
+            new DateTime(2026, 06, 21, 10, 00, 00, DateTimeKind.Utc),
+            new DateTime(2026, 06, 21, 14, 00, 00, DateTimeKind.Utc),
+            new Passport("4512", "123456"),
+            15000m);
+
+        if (status == BookingStatus.Confirmed)
+        {
+            booking.Confirm();
+        }
+        else if (status == BookingStatus.Expired)
+        {
+            booking.Expire();
+        }
+        else if (status == BookingStatus.Cancelled)
+        {
+            booking.Cancel(new DateTime(2026, 06, 20, 10, 00, 00, DateTimeKind.Utc));
+        }
+
+        return booking;
     }
 }
 

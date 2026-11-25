@@ -84,6 +84,7 @@ public class ExceptionHandlingMiddleware
             PaymentTimeoutException => "REQUEST_TIMEOUT",
             InvalidBookingDurationException => "INVALID_BOOKING_DURATION",
             InvalidBookingStatusTransitionException => "INVALID_STATUS_TRANSITION",
+            ClientHasActiveBookingsException => "CANNOT_DELETE_CLIENT",
             YachtNotAvailableException => "YACHT_NOT_AVAILABLE",
             _ => "DOMAIN_ERROR",
         };

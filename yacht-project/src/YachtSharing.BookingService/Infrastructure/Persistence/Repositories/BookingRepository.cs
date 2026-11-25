@@ -34,6 +34,13 @@ public class BookingRepository : IBookingRepository
         _context.Bookings.Update(booking);
     }
 
+    public async Task<IReadOnlyList<Booking>> GetByClientIdAsync(Guid clientId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings
+            .Where(b => b.ClientId == clientId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Booking>> GetExpiredPendingBookingsAsync(DateTime cutoffTime, CancellationToken cancellationToken = default)
     {
         return await _context.Bookings

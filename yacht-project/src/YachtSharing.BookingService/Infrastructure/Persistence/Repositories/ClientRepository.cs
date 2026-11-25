@@ -32,4 +32,9 @@ public class ClientRepository : IClientRepository
     {
         _context.Clients.Add(client);
     }
+
+    public void Delete(UserClient client)
+    {
+        _context.Clients.Remove(client);
+    }
 }

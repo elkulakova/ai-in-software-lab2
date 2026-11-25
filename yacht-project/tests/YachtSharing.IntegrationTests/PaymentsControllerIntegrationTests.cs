@@ -88,6 +88,11 @@ public class PaymentsControllerIntegrationTests
         {
             throw new NotImplementedException();
         }
+
+        public Task DeleteClientAsync(Guid clientId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
         public Task<BookingResponseDto> GetBookingByIdAsync(Guid bookingId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();

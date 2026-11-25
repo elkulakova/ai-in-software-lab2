@@ -2,6 +2,7 @@ using Catalog;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using YachtSharing.BookingService.Application.Abstractions.Repositories;
@@ -65,6 +66,31 @@ public class BookingManagementService : IBookingService
         _logger.LogInformation("Successfully registered new client with ID {ClientId}", newClient.Id);
 
         return newClient.Id;
+    }
+
+    public async Task DeleteClientAsync(Guid clientId, CancellationToken cancellationToken = default)
+    {
+        UserClient client = await _clientRepository.GetByIdAsync(clientId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Client with ID {clientId} was not found.");
+
+        IReadOnlyList<Booking> bookings = await _unitOfWork.BookingRepository.GetByClientIdAsync(
+            clientId,
+            cancellationToken);
+
+        var activeBookings = bookings
+            .Where(b => b.Status is BookingStatus.PendingPayment or BookingStatus.Confirmed)
+            .Select(b => b.Status)
+            .Distinct()
+            .ToArray();
+
+        if (activeBookings.Length > 0)
+        {
+            throw new ClientHasActiveBookingsException(clientId, activeBookings);
+        }
+
+        _clientRepository.Delete(client);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<BookingResponseDto> GetBookingByIdAsync(

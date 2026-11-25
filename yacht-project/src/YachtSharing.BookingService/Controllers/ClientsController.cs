@@ -26,4 +26,13 @@ public class ClientsController : ControllerBase
         Guid clientId = await _bookingService.RegisterClientAsync(dto, cancellationToken);
         return Ok(new { clientId });
     }
+
+    [HttpDelete("{clientId:guid}")]
+    public async Task<IActionResult> DeleteClient(
+        [FromRoute] Guid clientId,
+        CancellationToken cancellationToken)
+    {
+        await _bookingService.DeleteClientAsync(clientId, cancellationToken);
+        return NoContent();
+    }
 }
