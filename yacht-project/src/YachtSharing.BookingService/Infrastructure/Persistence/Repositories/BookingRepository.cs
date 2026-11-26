@@ -40,4 +40,12 @@ public class BookingRepository : IBookingRepository
             .Where(b => b.Status == BookingStatus.PendingPayment && b.CreatedAt < cutoffTime)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<bool> HasActiveBookingsForClientAsync(Guid clientId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Bookings.AnyAsync(
+            b => b.ClientId == clientId
+                 && (b.Status == BookingStatus.PendingPayment || b.Status == BookingStatus.Confirmed),
+            cancellationToken);
+    }
 }

@@ -67,6 +67,27 @@ public class BookingManagementService : IBookingService
         return newClient.Id;
     }
 
+    public async Task DeleteClientAsync(
+        Guid clientId,
+        CancellationToken cancellationToken = default)
+    {
+        UserClient client = await _clientRepository.GetByIdAsync(clientId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Client with ID {clientId} was not found.");
+
+        bool hasActiveBookings = await _unitOfWork.BookingRepository
+            .HasActiveBookingsForClientAsync(clientId, cancellationToken);
+
+        if (hasActiveBookings)
+        {
+            throw new ClientHasActiveBookingsException(clientId);
+        }
+
+        _clientRepository.Remove(client);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Client {ClientId} and related booking data were deleted.", clientId);
+    }
+
     public async Task<BookingResponseDto> GetBookingByIdAsync(
         Guid bookingId,
         CancellationToken cancellationToken = default)

@@ -15,4 +15,6 @@ public interface IBookingRepository
     void Update(Booking booking);
 
     Task<IReadOnlyList<Booking>> GetExpiredPendingBookingsAsync(DateTime cutoffTime, CancellationToken cancellationToken = default);
+
+    Task<bool> HasActiveBookingsForClientAsync(Guid clientId, CancellationToken cancellationToken = default);
 }
