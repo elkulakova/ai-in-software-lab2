@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -314,6 +315,185 @@ public class BookingManagementServiceTests
         unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
     [Fact]
+    public async Task DeleteClientAsync_RemovesClient_WhenNoBookingsExist()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var paymentRepository = new Mock<IPaymentRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+        unitOfWork.SetupGet(x => x.PaymentRepository).Returns(paymentRepository.Object);
+
+        UserClient client = new("Anna Ivanova", "anna@example.com");
+        clientRepository
+            .Setup(x => x.GetByIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(client);
+        bookingRepository
+            .Setup(x => x.GetByClientIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(Array.Empty<Booking>());
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        await service.DeleteClientAsync(client.Id, CancellationToken.None);
+
+        bookingRepository.Verify(x => x.RemoveRange(It.IsAny<IEnumerable<Booking>>()), Times.Never);
+        clientRepository.Verify(x => x.Remove(client), Times.Once);
+        unitOfWork.Verify(x => x.SaveChangesAsync(CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteClientAsync_RemovesClientAndInactiveBookings_WhenOnlyCancelledOrExpired()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var paymentRepository = new Mock<IPaymentRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+        unitOfWork.SetupGet(x => x.PaymentRepository).Returns(paymentRepository.Object);
+
+        UserClient client = new("Anna Ivanova", "anna@example.com");
+        Booking cancelled = CreateBookingForClient(client.Id, 10000m);
+        cancelled.Cancel(cancelled.CreatedAt);
+        Booking expired = CreateBookingForClient(client.Id, 12000m);
+        expired.Expire();
+
+        clientRepository
+            .Setup(x => x.GetByIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(client);
+        bookingRepository
+            .Setup(x => x.GetByClientIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(new List<Booking> { cancelled, expired });
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        crewRepository
+            .Setup(x => x.GetByBookingIdsAsync(
+                It.Is<IReadOnlyList<Guid>>(ids => ids.Contains(cancelled.Id) && ids.Contains(expired.Id)),
+                CancellationToken.None))
+            .ReturnsAsync(Array.Empty<CrewMember>());
+        paymentRepository
+            .Setup(x => x.GetByBookingIdsAsync(
+                It.Is<IReadOnlyList<Guid>>(ids => ids.Contains(cancelled.Id) && ids.Contains(expired.Id)),
+                CancellationToken.None))
+            .ReturnsAsync(Array.Empty<Payment>());
+
+        await service.DeleteClientAsync(client.Id, CancellationToken.None);
+
+        bookingRepository.Verify(
+            x => x.RemoveRange(It.Is<IEnumerable<Booking>>(bookings =>
+                bookings.Contains(cancelled) && bookings.Contains(expired))),
+            Times.Once);
+        clientRepository.Verify(x => x.Remove(client), Times.Once);
+        unitOfWork.Verify(x => x.SaveChangesAsync(CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteClientAsync_ThrowsKeyNotFound_WhenClientDoesNotExist()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var paymentRepository = new Mock<IPaymentRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+        unitOfWork.SetupGet(x => x.PaymentRepository).Returns(paymentRepository.Object);
+
+        Guid missingClientId = Guid.NewGuid();
+        clientRepository
+            .Setup(x => x.GetByIdAsync(missingClientId, CancellationToken.None))
+            .ReturnsAsync((UserClient?)null);
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        Func<Task> action = async () => await service.DeleteClientAsync(missingClientId, CancellationToken.None);
+
+        await action.Should().ThrowAsync<KeyNotFoundException>();
+        clientRepository.Verify(x => x.Remove(It.IsAny<UserClient>()), Times.Never);
+        unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteClientAsync_ThrowsConflict_WhenClientHasActiveBooking()
+    {
+        var bookingRepository = new Mock<IBookingRepository>();
+        var paymentRepository = new Mock<IPaymentRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        var clientRepository = new Mock<IClientRepository>();
+        var crewRepository = new Mock<ICrewRepository>();
+        var catalogService = new Mock<ICatalogIntegrationService>();
+        var gimsService = new Mock<IGimsIntegrationService>();
+        var dateTimeProvider = new Mock<IDateTimeProvider>();
+        var logger = new Mock<ILogger<BookingManagementService>>();
+
+        unitOfWork.SetupGet(x => x.BookingRepository).Returns(bookingRepository.Object);
+        unitOfWork.SetupGet(x => x.PaymentRepository).Returns(paymentRepository.Object);
+
+        UserClient client = new("Anna Ivanova", "anna@example.com");
+        Booking activeBooking = CreateBookingForClient(client.Id, 15000m);
+
+        clientRepository
+            .Setup(x => x.GetByIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(client);
+        bookingRepository
+            .Setup(x => x.GetByClientIdAsync(client.Id, CancellationToken.None))
+            .ReturnsAsync(new List<Booking> { activeBooking });
+
+        BookingManagementService service = CreateService(
+            unitOfWork,
+            clientRepository,
+            crewRepository,
+            catalogService,
+            gimsService,
+            dateTimeProvider,
+            logger);
+
+        Func<Task> action = async () => await service.DeleteClientAsync(client.Id, CancellationToken.None);
+
+        await action.Should().ThrowAsync<ClientHasActiveBookingsException>();
+        clientRepository.Verify(x => x.Remove(It.IsAny<UserClient>()), Times.Never);
+        bookingRepository.Verify(x => x.RemoveRange(It.IsAny<IEnumerable<Booking>>()), Times.Never);
+        unitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task PrepareCheckoutAsync_ReturnsPaymentSession_WhenBookingStillActive()
     {
         var bookingRepository = new Mock<IBookingRepository>();
@@ -421,8 +601,13 @@ public class BookingManagementServiceTests
 
     private static Booking CreateBooking(decimal finalCost)
     {
+        return CreateBookingForClient(Guid.NewGuid(), finalCost);
+    }
+
+    private static Booking CreateBookingForClient(Guid clientId, decimal finalCost)
+    {
         return new Booking(
-            Guid.NewGuid(),
+            clientId,
             7,
             new DateTime(2026, 06, 21, 10, 00, 00, DateTimeKind.Utc),
             new DateTime(2026, 06, 21, 14, 00, 00, DateTimeKind.Utc),
