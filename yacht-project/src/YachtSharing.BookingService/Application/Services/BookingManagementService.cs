@@ -2,6 +2,7 @@ using Catalog;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using YachtSharing.BookingService.Application.Abstractions.Repositories;
@@ -65,6 +66,54 @@ public class BookingManagementService : IBookingService
         _logger.LogInformation("Successfully registered new client with ID {ClientId}", newClient.Id);
 
         return newClient.Id;
+    }
+
+    public async Task DeleteClientAsync(
+        Guid clientId,
+        CancellationToken cancellationToken = default)
+    {
+        UserClient client = await _clientRepository.GetByIdAsync(clientId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Client with ID {clientId} was not found.");
+
+        IReadOnlyList<Booking> bookings = await _unitOfWork.BookingRepository.GetByClientIdAsync(
+            clientId,
+            cancellationToken);
+
+        bool hasActiveBookings = bookings.Any(booking =>
+            booking.Status is BookingStatus.PendingPayment or BookingStatus.Confirmed);
+
+        if (hasActiveBookings)
+        {
+            throw new ClientHasActiveBookingsException(clientId);
+        }
+
+        if (bookings.Count > 0)
+        {
+            IReadOnlyList<Guid> bookingIds = bookings.Select(booking => booking.Id).ToList();
+
+            IReadOnlyList<CrewMember> crewMembers = await _crewRepository.GetByBookingIdsAsync(
+                bookingIds,
+                cancellationToken);
+            if (crewMembers.Count > 0)
+            {
+                _crewRepository.RemoveRange(crewMembers);
+            }
+
+            IReadOnlyList<Payment> payments = await _unitOfWork.PaymentRepository.GetByBookingIdsAsync(
+                bookingIds,
+                cancellationToken);
+            if (payments.Count > 0)
+            {
+                _unitOfWork.PaymentRepository.RemoveRange(payments);
+            }
+
+            _unitOfWork.BookingRepository.RemoveRange(bookings);
+        }
+
+        _clientRepository.Remove(client);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Deleted client {ClientId} and related booking data.", clientId);
     }
 
     public async Task<BookingResponseDto> GetBookingByIdAsync(

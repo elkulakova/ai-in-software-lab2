@@ -85,6 +85,7 @@ public class ExceptionHandlingMiddleware
             InvalidBookingDurationException => "INVALID_BOOKING_DURATION",
             InvalidBookingStatusTransitionException => "INVALID_STATUS_TRANSITION",
             YachtNotAvailableException => "YACHT_NOT_AVAILABLE",
+            ClientHasActiveBookingsException => "CLIENT_HAS_ACTIVE_BOOKINGS",
             _ => "DOMAIN_ERROR",
         };
     }

@@ -23,6 +23,20 @@ public class CrewRepository : ICrewRepository
         _context.CrewMembers.AddRange(members);
     }
 
+    public async Task<IReadOnlyList<CrewMember>> GetByBookingIdsAsync(
+        IReadOnlyList<Guid> bookingIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (bookingIds.Count == 0)
+        {
+            return Array.Empty<CrewMember>();
+        }
+
+        return await _context.CrewMembers
+            .Where(cm => bookingIds.Contains(cm.BookingId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<CrewMember>> GetExpiredCrewAsync(DateTime thresholdDate, CancellationToken cancellationToken = default)
     {
         return await _context.CrewMembers

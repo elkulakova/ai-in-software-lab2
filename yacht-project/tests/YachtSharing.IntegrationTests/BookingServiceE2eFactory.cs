@@ -11,6 +11,7 @@ using Catalog;
 using YachtSharing.BookingService;
 using YachtSharing.BookingService.Application.Abstractions.Services;
 using YachtSharing.BookingService.Domain.Entities;
+using YachtSharing.BookingService.Domain.Enums;
 using YachtSharing.BookingService.Infrastructure.BackgroundServices;
 using YachtSharing.BookingService.Infrastructure.Persistence;
 
@@ -95,6 +96,44 @@ public sealed class BookingServiceE2eFactory : WebApplicationFactory<BookingAppl
         using IServiceScope scope = Services.CreateScope();
         BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
         return await dbContext.Bookings.CountAsync();
+    }
+
+    public async Task<bool> ClientExistsAsync(Guid clientId)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        return await dbContext.Clients.AnyAsync(client => client.Id == clientId);
+    }
+
+    public async Task SetBookingStatusAsync(Guid bookingId, BookingStatus status)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        Booking booking = await dbContext.Bookings.FirstAsync(b => b.Id == bookingId);
+
+        switch (status)
+        {
+            case BookingStatus.Cancelled:
+                booking.Cancel(DateTime.UtcNow);
+                break;
+            case BookingStatus.Expired:
+                booking.Expire();
+                break;
+            case BookingStatus.Confirmed:
+                booking.Confirm();
+                break;
+            default:
+                throw new InvalidOperationException($"Unsupported status seed: {status}");
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    public async Task<int> GetCrewCountForBookingAsync(Guid bookingId)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        BookingDbContext dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        return await dbContext.CrewMembers.CountAsync(member => member.BookingId == bookingId);
     }
 }
 

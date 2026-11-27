@@ -10,6 +10,10 @@ public interface ICrewRepository
 {
     void AddRange(IEnumerable<CrewMember> members);
 
+    Task<IReadOnlyList<CrewMember>> GetByBookingIdsAsync(
+        IReadOnlyList<Guid> bookingIds,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CrewMember>> GetExpiredCrewAsync(DateTime thresholdDate, CancellationToken cancellationToken = default);
 
     void RemoveRange(IEnumerable<CrewMember> members);

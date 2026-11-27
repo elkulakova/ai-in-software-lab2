@@ -10,9 +10,13 @@ public interface IBookingRepository
 {
     Task<Booking?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Booking>> GetByClientIdAsync(Guid clientId, CancellationToken cancellationToken = default);
+
     void Add(Booking booking);
 
     void Update(Booking booking);
+
+    void RemoveRange(IEnumerable<Booking> bookings);
 
     Task<IReadOnlyList<Booking>> GetExpiredPendingBookingsAsync(DateTime cutoffTime, CancellationToken cancellationToken = default);
 }
