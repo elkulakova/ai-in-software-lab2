@@ -22,11 +22,6 @@ public class UserClient
             throw new ArgumentException("Client email cannot be empty.", nameof(email));
         }
 
-        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@', StringComparison.Ordinal))
-        {
-            throw new ArgumentException("Invalid client email address.", nameof(email));
-        }
-
         Id = Guid.NewGuid();
         Name = name;
         Email = email;
